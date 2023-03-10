@@ -1,12 +1,13 @@
 use base64::{engine::general_purpose, Engine};
+use bytemuck::cast_slice;
+use hound::WavReader;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::Read;
 
 #[derive(Serialize)]
 struct RecognitionConfig {
     encoding: String,
+    sample_rate_hertz: i32,
     language_code: String,
 }
 
@@ -43,16 +44,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let audio_file_path = "sample.wav";
 
     // Read audio file content
-    let mut audio_file = File::open(audio_file_path)?;
+    let mut audio_file = WavReader::open(audio_file_path)?;
+    let sample_rate = audio_file.spec().sample_rate;
     let mut audio_content = Vec::new();
-    audio_file.read_to_end(&mut audio_content)?;
+    for sample in audio_file.samples::<i16>() {
+        audio_content.push(sample?);
+    }
+    let audio_slice = cast_slice(&audio_content);
 
     // Encode audio content to base64
-    let encoded_audio_content = general_purpose::STANDARD.encode(&audio_content);
+    let encoded_audio_content = general_purpose::STANDARD.encode(&audio_slice);
 
     // Build recognition request
     let recognition_config = RecognitionConfig {
         encoding: "LINEAR16".to_string(),
+        sample_rate_hertz: sample_rate as i32,
         language_code: language.to_string(),
     };
 
