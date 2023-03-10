@@ -4,7 +4,7 @@ use hound::WavReader;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct RecognitionConfig {
     encoding: String,
     sample_rate_hertz: i32,
@@ -22,19 +22,19 @@ struct RecognizeRequest {
     audio: RecognitionAudio,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct SpeechRecognitionAlternative {
     transcript: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct SpeechRecognitionResult {
     alternatives: Vec<SpeechRecognitionAlternative>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct SpeechRecognitionResponse {
-    results: Vec<SpeechRecognitionResult>,
+    results: Option<Vec<SpeechRecognitionResult>>,
 }
 
 #[tokio::main]
@@ -42,8 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let key = "AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw";
     let language = "en-US";
     let audio_file_path = "sample.wav";
+    let chunk_duration = 5; // seconds
 
-    // Read audio file content
     let mut audio_file = WavReader::open(audio_file_path)?;
     let sample_rate = audio_file.spec().sample_rate;
     let mut audio_content = Vec::new();
@@ -51,44 +51,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         audio_content.push(sample?);
     }
     let audio_slice = cast_slice(&audio_content);
-
-    // Encode audio content to base64
-    let encoded_audio_content = general_purpose::STANDARD.encode(&audio_slice);
-
-    // Build recognition request
     let recognition_config = RecognitionConfig {
         encoding: "LINEAR16".to_string(),
         sample_rate_hertz: sample_rate as i32,
         language_code: language.to_string(),
     };
-
-    let recognition_audio = RecognitionAudio {
-        content: encoded_audio_content,
-    };
-
-    let recognize_request = RecognizeRequest {
-        config: recognition_config,
-        audio: recognition_audio,
-    };
-
-    // Send recognition request
     let client = Client::new();
     let url = format!(
         "https://speech.googleapis.com/v1/speech:recognize?key={}",
         key
     );
-    let response = client.post(&url).json(&recognize_request).send().await?;
-
-    // Parse recognition response
-    let recognition_response: SpeechRecognitionResponse = response.json().await?;
-    // Extract the transcription from the response and print it to the console
-    let transcription = recognition_response
-        .results
-        .iter()
-        .map(|result| result.alternatives[0].transcript.clone())
-        .collect::<Vec<String>>()
-        .join("\n");
-
-    println!("Transcription: {}", transcription);
+    let chunk_size = (sample_rate * chunk_duration).try_into()?;
+    let chunks = audio_slice.chunks(chunk_size);
+    for chunk in chunks {
+        let encoded_chunk = general_purpose::STANDARD.encode(chunk);
+        let recognition_audio = RecognitionAudio {
+            content: encoded_chunk,
+        };
+        let recognize_request = RecognizeRequest {
+            config: recognition_config.clone(),
+            audio: recognition_audio,
+        };
+        let response = client.post(&url).json(&recognize_request).send().await?;
+        let recognition_response: SpeechRecognitionResponse = response.json().await?;
+        let results = recognition_response.results;
+        if let Some(results) = results {
+            let first_result = results.first().unwrap();
+            let first_alternative = first_result.alternatives.first().unwrap();
+            println!("{}", first_alternative.transcript);
+        }
+    }
     Ok(())
 }
