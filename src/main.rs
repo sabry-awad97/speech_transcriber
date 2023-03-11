@@ -41,10 +41,9 @@ impl SpeechTranscriber {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let language_code = "en-US";
     let audio_file_path = "sample.wav";
-
-    let audio_stream = AudioStream::new(audio_file_path, 1024).unwrap();
+    let buffer_duaration = 2; // 2 seconds
+    let audio_stream = AudioStream::new(audio_file_path, buffer_duaration)?;
     let sample_rate = audio_stream.sample_rate;
-
     let audio_content = audio_stream.audio_content();
     let speech_transcriber = SpeechTranscriber::new(language_code);
     let recognition_response = speech_transcriber
