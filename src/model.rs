@@ -10,7 +10,7 @@ pub struct RecognitionConfig {
     pub use_enhanced: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Word {
     pub confidence: f64,
@@ -19,14 +19,14 @@ pub struct Word {
     pub word: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SpeechRecognitionAlternative {
     pub confidence: f64,
     pub transcript: String,
     pub words: Vec<Word>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeechRecognitionResult {
     pub alternatives: Vec<SpeechRecognitionAlternative>,
@@ -34,7 +34,7 @@ pub struct SpeechRecognitionResult {
     pub _result_end_time: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeechRecognitionResponse {
     pub _request_id: String,

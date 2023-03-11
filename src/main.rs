@@ -3,7 +3,7 @@ use std::error::Error;
 use bytemuck::cast_slice;
 use model::SpeechRecognitionResponse;
 use speech_client::SpeechClient;
-use transcription_printer::TranscriptionPrinter;
+use transcription_printer::{OutputFormat, TranscriptionPrinter};
 
 mod audio_file_reader;
 mod model;
@@ -39,17 +39,17 @@ impl SpeechTranscriber {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let language_code = "en-US";
     let audio_file_path = "sample.wav";
-    
+
     let audio_reader = audio_file_reader::AudioFileReader::new(audio_file_path);
     let (audio_content, sample_rate) = audio_reader.read_audio()?;
-    
+
     let speech_transcriber = SpeechTranscriber::new(language_code);
     let recognition_response = speech_transcriber
         .transcribe(&audio_content, sample_rate)
         .await?;
 
-    let mut printer = TranscriptionPrinter::new();
-    printer.print(&recognition_response);
+    let mut printer = TranscriptionPrinter::new(OutputFormat::Json);
+    printer.print(&recognition_response, None);
 
     Ok(())
 }
